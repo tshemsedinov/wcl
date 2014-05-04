@@ -1,3 +1,10 @@
+0.0.3 / 2014-05-05
+==================
+
+  * Added wcl.AjaxAPI(methods) where mathods: { method: { get/post:url }, ... }
+  * Added introspection autoloading methods in wcl.AjaxAPI from server
+  * Changed "new" instantiation method to "factory" for classes Record, Field, Table, MemoryDataSource, AjaxDataSource
+
 0.0.2 / 2014-05-04
 ==================
 

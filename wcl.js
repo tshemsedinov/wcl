@@ -1,5 +1,5 @@
 ﻿// WCL Web Component Library
-// Version 0.0.1
+// Version 0.0.3
 
 (function(wcl) {
 
@@ -7,143 +7,185 @@
 	wcl.components = {};
 	wcl.utils = {};
 
-	wcl.DataSource = function(params) {
-		// just abstract, see implementation below
-	}
-
-	wcl.AjaxDataSource = function(params) { // { read, insert, update, delete, find, metadata }
-		this.params = params;
-		this.request = function(ajaxMethod, params, callback) {
-			var err = null, data = null, requestParams = this.params[ajaxMethod];
+	wcl.AjaxAPI = function(methods) { // params: { method: { get/post:url }, ... }
+		var api = {};
+		api.request = function(apiMethod, params, callback) {
+			var err = null, requestParams = this.methods[apiMethod];
 			if (requestParams) {
 				var httpMethod, url;
 				if (requestParams.get ) { httpMethod = 'GET';  url = requestParams.get;  }
 				if (requestParams.post) { httpMethod = 'POST'; url = requestParams.post; }
-				if (httpMethod) { wcl.request(httpMethod, url, params, true, callback); return; }
-				else err = new Error("DataSource error: HTTP method is not specified");
+				if (httpMethod) {
+					wcl.request(httpMethod, url, params, true, callback);
+					return;
+				} else err = new Error("DataSource error: HTTP method is not specified");
 			} else err = new Error("DataSource error: AJAX method is not specified");
-			callback(err, data);
+			callback(err, null);
 		}
-		this.read   = function(params, callback) { this.request('read',   params, callback); }
-		this.insert = function(params, callback) { this.request('insert', params, callback); }
-		this.update = function(params, callback) { this.request('update', params, callback); }
-		this.delete = function(params, callback) { this.request('delete', params, callback); }
-		this.find   = function(params, callback) { this.request('find',   params, callback); }
+		api.init = function(methods) {
+			api.methods = methods;
+			for (var method in api.methods) {
+				if (method == 'introspect') api[method] = function(params, callback) {
+					api.request(method, params, function(err, data) {
+						api.init(methods);
+						callback(err, data);
+					});
+				}; else api[method] = function(params, callback) {
+					api.request(method, params, callback);
+				}
+			}
+		}
+		api.init(methods);
+		return api;
+	}
+
+	wcl.DataSource = function(methods) {
+		// just abstract, see implementation below
+		// should be implemented methods:
+		//   read(query, callback)   return one record as object, callback(err, obj)
+		//   insert(obj, callback)   insert one record, callback(err) on done
+		//   update(obj, callback)   update one record, callback(err) on done
+		//   delete(query, callback) delete multiple records, callback(err) on done
+		// may be implemented methods:
+		//   introspect(params, callback) populates DataSource.methods with introspection metadata returning from server
+		//   metadata(params, callback)   populates DataSource.metadata with metadata from server
+		//   find(query, callback)        return multiple records as Array, callback(err, Array)
+	}
+
+	wcl.AjaxDataSource = function(methods) {
+		var ds = wcl.AjaxAPI(methods);
+		ds.read = function(query, callback) {
+			ds.request('read', query, function(err, data) {
+				// TODO: autocreate Record
+				//   callback(err, wcl.Record({ data:data }));
+				//
+				callback(err, data);
+			});
+		}
+		return ds;
 	}
 
 	wcl.MemoryDataSource = function(params) { // { data:Hash, metadata:Hash }
-		this.data = params.data;
-		this.metadata = params.metadata;
-		this.each = function(params, callback) {
-			for (var i = 0; i < this.data.length; i++) {
-				var d = this.data[i], match = true;
+		var ds = {};
+		ds.data = params.data;
+		ds.metadata = params.metadata;
+		ds.each = function(params, callback) {
+			for (var i = 0; i < ds.data.length; i++) {
+				var d = ds.data[i], match = true;
 				for (var key in params) match = match && (d[key] == params[key]);
 				if (match) { if (callback(i)) return; }
 			}
 		}
-		this.read = function(params, callback) {
-			var data = this.data;
-			this.each(params, function(key) { callback(null, data[key]); return true; });
+		ds.read = function(params, callback) {
+			var data = ds.data;
+			ds.each(params, function(key) { callback(null, data[key]); return true; });
 			callback(new Error("Record not found"), null);
 		}
-		this.insert = function(params, callback) {
-			this.data.push(params);
+		ds.insert = function(params, callback) {
+			ds.data.push(params);
 			callback();
 		}
-		this.update = function(params, callback) {
-			var data = this.data;
-			this.each(params, function(key) { data[key] = params; return true; });
+		ds.update = function(params, callback) {
+			var data = ds.data;
+			ds.each(params, function(key) { data[key] = params; return true; });
 			callback();
 		}
-		this.delete = function(params, callback) {
-			var data = this.data;
-			this.each(params, function(key) { delete data[key]; });
+		ds.delete = function(params, callback) {
+			var data = ds.data;
+			ds.each(params, function(key) { delete data[key]; });
 			callback();
 		}
-		this.find = function(params, callback) {
-			var data = this.data, result = [];
-			this.each(params, function(key) { result.push(data[key]); });
+		ds.find = function(params, callback) {
+			var data = ds.data, result = [];
+			ds.each(params, function(key) { result.push(data[key]); });
 			callback(null, result);
 		}
+		return ds;
 	}
-
+	
 	wcl.Field = function(params) { // { data:Value, metadata:Hash, record:Record }
-		this.data = params.data;
-		this.metadata = params.metadata;
-		this.record = params.record;
-		this.bindings = [];
-		this.modified = false;
-		this.value = function(value, forceUpdate) {
+		var field = {};
+		field.data = params.data;
+		field.metadata = params.metadata;
+		field.record = params.record;
+		field.bindings = [];
+		field.modified = false;
+		field.value = function(value, forceUpdate) {
 			if (value != undefined) {
-				if ((this.data != value) || forceUpdate) {
-					this.data = value;
-					this.modified = true;
-					if (this.record.updateCount == 0) {
-						for (var i = 0; i < this.bindings.length; i++) this.bindings[i].value(value);
+				if ((field.data != value) || forceUpdate) {
+					field.data = value;
+					field.modified = true;
+					if (field.record.updateCount == 0) {
+						for (var i = 0; i < field.bindings.length; i++) field.bindings[i].value(value);
 					}
 				}
-			} else return this.data;
+			} else return field.data;
 		}
+		return field;
 	}
 
 	wcl.Record = function(params) {
-		// implemented:      Record({ data:Hash, metadata:Hash })
-		// not implemented:  Record({ table:Table, source:DataSource })
+		// implemented params: { data:Hash, metadata:Hash }
+		// not implemented:    { table:Table, source:DataSource }
 		//
-		this.fields = {};
-		this.assign = function(data, metadata, preventUpdateAll) {
+		var record = {};
+		record.fields = {};
+		record.assign = function(data, metadata, preventUpdateAll) {
 			for (var fieldName in data) {
-				if (this.fields[fieldName]) this.fields[fieldName].value(data[fieldName]);
-				else this.fields[fieldName] = new wcl.Field({
+				if (record.fields[fieldName]) record.fields[fieldName].value(data[fieldName]);
+				else record.fields[fieldName] = wcl.Field({
 					data:     data[fieldName],
 					metadata: metadata ? metadata[fieldName] : null,
-					record:   this
+					record:   record
 				});
 			}
-			if (!preventUpdateAll) this.updateAll();
+			if (!preventUpdateAll) record.updateAll();
 		}
-		this.each = function(callback) { // callback(fieldName, field)
-			for (var fieldName in this.fields) callback(fieldName, this.fields[fieldName]);
+		record.each = function(callback) { // callback(fieldName, field)
+			for (var fieldName in record.fields) callback(fieldName, record.fields[fieldName]);
 		}
-		this.toObject = function() {
+		record.toObject = function() {
 			var result = {};
-			this.each(function(fieldName, field) { result[fieldName] = field.value(); });
+			record.each(function(fieldName, field) { result[fieldName] = field.value(); });
 			return result;
 		}
-		this.toString = function() {
-			return JSON.stringify(this.toObject());
+		record.toString = function() {
+			return JSON.stringify(record.toObject());
 		}
-		this.updateCount = 0;
-		this.beginUpdate = function() {
-			this.updateCount++;
+		record.updateCount = 0;
+		record.beginUpdate = function() {
+			record.updateCount++;
 		}
-		this.endUpdate = function() {
-			this.updateCount--;
-			if (this.updateCount <= 0) {
-				this.updateCount = 0;
-				this.updateAll();
+		record.endUpdate = function() {
+			record.updateCount--;
+			if (record.updateCount <= 0) {
+				record.updateCount = 0;
+				record.updateAll();
 			}
 		}
-		this.updateAll = function() {
-			this.each(function(fieldName, field) { field.value(field.data, true); });
+		record.updateAll = function() {
+			record.each(function(fieldName, field) { field.value(field.data, true); });
 		}
-		if (params.data) this.assign(params.data, params.metadata, true);
+		if (params.data) record.assign(params.data, params.metadata, true);
+		return record;
 	}
 
 	wcl.Table = function(params) { // Table({ source:DataSource, data:Hash, metadata:Hash })
-		this.memory = new wcl.MemoryDataSource({ data:params.data || [] });
-		this.metadata = params.metadata;
-		this.source = params.source;
-		this.toString = function() {
-			return JSON.stringify(this.memory.data);
+		var table = {};
+		table.memory = wcl.MemoryDataSource({ data:params.data || [] });
+		table.metadata = params.metadata;
+		table.source = params.source;
+		table.toString = function() {
+			return JSON.stringify(table.memory.data);
 		}
-		this.query = function(params, callback) {
-			var memory = this.memory;
-			this.source.find(params, function(err, data) {
+		table.query = function(params, callback) {
+			var memory = table.memory;
+			table.source.find(params, function(err, data) {
 				memory.data = data;
 				callback();
 			});
 		}
+		return table;
 	}
 
 	// Nonvisual or visual component
@@ -197,6 +239,8 @@
 		}, false);
 	}
 
+	// TODO: autobind on load
+	//
 	wcl.bind = function(params) { // { record:Record, container:element }
 		params.container.wcl = { record: params.record };
 		var elements = params.container.getElementsByTagName('div');

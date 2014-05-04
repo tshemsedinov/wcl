@@ -13,7 +13,7 @@
 ```javascript
 var ajax, mem, r1, c1;
 
-ajax = new wcl.AjaxDataSource({
+ajax = wcl.AjaxDataSource({
 	read:     { get:  "examples/person/read.json" },
 	insert:   { post: "examples/person/insert.json" },
 	update:   { post: "examples/person/update.json" },
@@ -22,7 +22,7 @@ ajax = new wcl.AjaxDataSource({
 	metadata: { post: "examples/person/metadata.json" }
 });
 
-mem = new wcl.MemoryDataSource({ data: [
+mem = wcl.MemoryDataSource({ data: [
 	{ id:1, name:"Person 1", phone:"+380501002011", email:"person1@domain.com" },
 	{ id:2, name:"Person 2", phone:"+380501002022", email:"person2@domain.com" },
 	{ id:3, name:"Person 3", phone:"+380501002033", email:"person3@domain.com" },
@@ -30,7 +30,9 @@ mem = new wcl.MemoryDataSource({ data: [
 
 mem.read({ name:"Person 2" }, function(err, data) {
 	if (data) {
-		r1 = new wcl.Record({ data:data });
+		r1 = wcl.Record({ data:data });
+		// TODO: autocreate Record for data and hide it from applied developer
+
 		c1 = document.getElementById('container');
 		wcl.bind({ record:r1, container:c1 });
 		
@@ -65,8 +67,8 @@ mem.read({ name:"Person 2" }, function(err, data) {
 
 var cardsSource, cardsTable;
 
-cardsSource = new wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
-cardsTable = new wcl.Table({ source:cardsSource });
+cardsSource = wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
+cardsTable = wcl.Table({ source:cardsSource });
 cardsTable.query({}, function() {
 	console.dir(cardsTable.memory.data);
 });
