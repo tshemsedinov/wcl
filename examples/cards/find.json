@@ -1,0 +1,8 @@
+﻿[
+	{ "id":1, "name":"Person 1", "phone":"+380501002011", "email":"person1@domain.com" },
+	{ "id":2, "name":"Person 2", "phone":"+380501002022", "email":"person2@domain.com" },
+	{ "id":3, "name":"Person 3", "phone":"+380501002033", "email":"person3@domain.com" },
+	{ "id":4, "name":"Person 4", "phone":"+380501002044", "email":"person4@domain.com" },
+	{ "id":5, "name":"Person 5", "phone":"+380501002055", "email":"person5@domain.com" },
+	{ "id":6, "name":"Person 6", "phone":"+380501002066", "email":"person6@domain.com" }
+]

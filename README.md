@@ -1,5 +1,4 @@
 # WCL Web Component Library
-=========
 
 ## Features
 
@@ -16,7 +15,7 @@ var ajax, mem, r1, c1;
 
 ajax = new wcl.AjaxDataSource({
 	read:     { get:  "examples/person/read.json" },
-	create:   { post: "examples/person/create.json" },
+	insert:   { post: "examples/person/insert.json" },
 	update:   { post: "examples/person/update.json" },
 	delete:   { post: "examples/person/delete.json" },
 	find:     { post: "examples/person/find.json" },
@@ -40,7 +39,12 @@ mem.read({ name:"Person 2" }, function(err, data) {
 		
 		setTimeout(function() {
 			r1.beginUpdate();
-			var newData = { id:"4", name:"Person 4", phone:"+380501002044", email:"person4@domain.com" };
+			var newData = {
+				id:"4",
+				name:"Person 4",
+				phone:"+380501002044",
+				email:"person4@domain.com"
+			};
 			r1.assign(newData);
 			r1.fields.name.value("Le Corbusier");
 			r1.fields.name.value("Spinoza");
@@ -57,6 +61,14 @@ mem.read({ name:"Person 2" }, function(err, data) {
 			});
 		}, 4000);
 	}
+});
+
+var cardsSource, cardsTable;
+
+cardsSource = new wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
+cardsTable = new wcl.Table({ source:cardsSource });
+cardsTable.query({}, function() {
+	console.dir(cardsTable.memory.data);
 });
 ```
 

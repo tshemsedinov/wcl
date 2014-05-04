@@ -1,3 +1,10 @@
+0.0.2 / 2014-05-04
+==================
+
+  * Added global.js and corresponding code refactoring
+  * Added Table class
+  * Some minor fixes
+
 0.0.1 / 2014-05-03
 ==================
 
