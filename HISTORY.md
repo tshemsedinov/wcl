@@ -1,3 +1,10 @@
+0.0.4 / 2014-05-06
+==================
+
+  * Added wcl.DataSet as multiple record holder
+  * Make all controls visible in window global context by name specified in data-wcl="{ name:'name' }"
+  * Added examples for AjaxAPI introspection
+
 0.0.3 / 2014-05-05
 ==================
 

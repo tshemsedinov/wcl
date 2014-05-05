@@ -1,11 +1,8 @@
 // File: global.js
 // Should be loaded first
 
-if (typeof(window) != 'undefined') {
-	window.global = window;
-	global.isBrowser = true;
-} else global.isBrowser = false;
-
+if (typeof(window) != 'undefined') window.global = window;
+global.isBrowser = !!global.window;
 global.isServer = !isBrowser;
 
 Function.prototype.override = function(fn) {

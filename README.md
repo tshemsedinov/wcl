@@ -31,8 +31,6 @@ mem = wcl.MemoryDataSource({ data: [
 mem.read({ name:"Person 2" }, function(err, data) {
 	if (data) {
 		r1 = wcl.Record({ data:data });
-		// TODO: autocreate Record for data and hide it from applied developer
-
 		c1 = document.getElementById('container');
 		wcl.bind({ record:r1, container:c1 });
 		
@@ -65,12 +63,27 @@ mem.read({ name:"Person 2" }, function(err, data) {
 	}
 });
 
+// DataSource example -----------------------------
+
 var cardsSource, cardsTable;
 
 cardsSource = wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
-cardsTable = wcl.Table({ source:cardsSource });
+cardsTable = wcl.DataSet({ source:cardsSource });
 cardsTable.query({}, function() {
 	console.dir(cardsTable.memory.data);
+	cardsTable.next();
+	r1.assign(cardsTable.record.toObject());
+});
+
+// API introspection example -----------------------------
+
+ajax2 = wcl.AjaxDataSource({
+	introspect: { post: "examples/person/introspect.json" }
+});
+ajax2.introspect({}, function() {
+	ajax2.read({ id:5 }, function(err, newData) {
+		console.log('Introspection works');
+	});
 });
 ```
 
@@ -82,6 +95,9 @@ cardsTable.query({}, function() {
 ## License
 
 Dual licensed under the MIT or RUMI licenses.
+
+Copyright (c) 2014 MetaSystems &lt;timur.shemsedinov@gmail.com&gt;
+Based on architectural solutions of MetaSystems 2006-2013 and ITAdapter 2002-2010
 
 RUMI License: Everything that you want, you are already that.
 

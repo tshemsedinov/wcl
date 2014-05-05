@@ -1,0 +1,8 @@
+﻿{
+	"read":     { "get":  "examples/person/read.json" },
+	"insert":   { "post": "examples/person/insert.json" },
+	"update":   { "post": "examples/person/update.json" },
+	"delete":   { "post": "examples/person/delete.json" },
+	"find":     { "post": "examples/person/find.json" },
+	"metadata": { "post": "examples/person/metadata.json" }
+}

@@ -1,9 +1,9 @@
 ﻿// WCL Web Component Library
-// Version 0.0.3
+// Version 0.0.4
 
 (function(wcl) {
 
-	wcl.records = [];
+	wcl.dataSets = [];
 	wcl.components = {};
 	wcl.utils = {};
 
@@ -123,7 +123,7 @@
 		}
 		return field;
 	}
-
+	
 	wcl.Record = function(params) {
 		// implemented params: { data:Hash, metadata:Hash }
 		// not implemented:    { table:Table, source:DataSource }
@@ -170,22 +170,48 @@
 		return record;
 	}
 
-	wcl.Table = function(params) { // Table({ source:DataSource, data:Hash, metadata:Hash })
-		var table = {};
-		table.memory = wcl.MemoryDataSource({ data:params.data || [] });
-		table.metadata = params.metadata;
-		table.source = params.source;
-		table.toString = function() {
-			return JSON.stringify(table.memory.data);
-		}
-		table.query = function(params, callback) {
-			var memory = table.memory;
-			table.source.find(params, function(err, data) {
-				memory.data = data;
+	wcl.DataSet = function(params) {
+		// implemented params: { data:Hash, metadata:Hash }
+		// not implemented:    { source:DataSource }
+		//
+		var dataSet = {};
+		dataSet.memory = wcl.MemoryDataSource({ data:[] });
+		dataSet.metadata = params.metadata;
+		dataSet.source = params.source;
+		dataSet.record = null;
+		dataSet.recordCount = 0;
+		dataSet.currentRecord = -1;
+		dataSet.query = function(params, callback) {
+			dataSet.source.find(params, function(err, data) {
+				dataSet.assign(data);
 				callback();
 			});
 		}
-		return table;
+		dataSet.toString = function() {
+			return JSON.stringify(dataSet.memory.data);
+		}
+		dataSet.assign = function(data) {
+			if (data) {
+				dataSet.memory.data = data;
+				dataSet.recordCount = dataSet.memory.data.length;
+				dataSet.currentRecord = -1;
+				dataSet.first();
+			}
+		}
+		dataSet.move = function(recNo) {
+			if (recNo != dataSet.currentRecord && recNo >= 0 && recNo < dataSet.recordCount) {
+				var data = dataSet.memory.data[recNo];
+				if (dataSet.record) dataSet.record.assign(data);
+				else dataSet.record = wcl.Record({ data:data });
+				dataSet.currentRecord = recNo;
+			}
+		}
+		dataSet.first = function() { dataSet.move(0); }
+		dataSet.next  = function() { dataSet.move(dataSet.currentRecord+1); }
+		dataSet.prev  = function() { dataSet.move(dataSet.currentRecord-1); }
+		dataSet.last  = function() { dataSet.move(dataSet.recordCount-1); }
+		dataSet.assign(params.data);
+		return dataSet;
 	}
 
 	// Nonvisual or visual component
@@ -239,6 +265,21 @@
 		}, false);
 	}
 
+	wcl.components.Table = function(obj) {
+		wcl.components.Control(obj);
+		obj.innerHTML = '<input type="text" name="email">';
+		var edit = obj.children[0];
+		edit.value = obj.wcl.field.data;
+		edit.addEventListener('keyup', function(e) {
+			obj.wcl.field.value(this.value);
+		}, false);
+		obj.value = function(value) {
+			var edit = this.children[0];
+			if (value == undefined) return edit.value;
+			else if (edit.value != value) edit.value = value;
+		}
+	}
+
 	// TODO: autobind on load
 	//
 	wcl.bind = function(params) { // { record:Record, container:element }
@@ -250,7 +291,8 @@
 			if (dataWcl) {
 				element.wcl = { dataWcl: wcl.parse(dataWcl), record: params.record };
 				if (element.wcl.dataWcl.control) {
-					var component = wcl.components[element.wcl.dataWcl.control]
+					var component = wcl.components[element.wcl.dataWcl.control];
+					global[element.wcl.dataWcl.name] = element;
 					component(element);
 				}
 			}
