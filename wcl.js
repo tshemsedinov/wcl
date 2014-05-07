@@ -1,9 +1,10 @@
 ﻿// WCL Web Component Library
-// Version 0.0.4
+// Version 0.0.5
 
 (function(wcl) {
 
-	wcl.dataSets = [];
+	wcl.dataSets = {};
+	wcl.containers = {};
 	wcl.components = {};
 	wcl.utils = {};
 
@@ -27,7 +28,7 @@
 			for (var method in api.methods) {
 				if (method == 'introspect') api[method] = function(params, callback) {
 					api.request(method, params, function(err, data) {
-						api.init(methods);
+						api.init(data);
 						callback(err, data);
 					});
 				}; else api[method] = function(params, callback) {
@@ -107,7 +108,7 @@
 		var field = {};
 		field.data = params.data;
 		field.metadata = params.metadata;
-		field.record = params.record;
+		field.dataSet = params.dataSet;
 		field.bindings = [];
 		field.modified = false;
 		field.value = function(value, forceUpdate) {
@@ -115,7 +116,7 @@
 				if ((field.data != value) || forceUpdate) {
 					field.data = value;
 					field.modified = true;
-					if (field.record.updateCount == 0) {
+					if (field.dataSet.record.updateCount == 0) {
 						for (var i = 0; i < field.bindings.length; i++) field.bindings[i].value(value);
 					}
 				}
@@ -125,18 +126,19 @@
 	}
 	
 	wcl.Record = function(params) {
-		// implemented params: { data:Hash, metadata:Hash }
+		// implemented params: { data:Hash, metadata:Hash, dataSet:DataSet }
 		// not implemented:    { table:Table, source:DataSource }
 		//
 		var record = {};
 		record.fields = {};
+		record.dataSet = params.dataSet;
 		record.assign = function(data, metadata, preventUpdateAll) {
 			for (var fieldName in data) {
 				if (record.fields[fieldName]) record.fields[fieldName].value(data[fieldName]);
 				else record.fields[fieldName] = wcl.Field({
 					data:     data[fieldName],
 					metadata: metadata ? metadata[fieldName] : null,
-					record:   record
+					dataSet:  record.dataSet
 				});
 			}
 			if (!preventUpdateAll) record.updateAll();
@@ -202,7 +204,7 @@
 			if (recNo != dataSet.currentRecord && recNo >= 0 && recNo < dataSet.recordCount) {
 				var data = dataSet.memory.data[recNo];
 				if (dataSet.record) dataSet.record.assign(data);
-				else dataSet.record = wcl.Record({ data:data });
+				else dataSet.record = wcl.Record({ data:data, dataSet:dataSet });
 				dataSet.currentRecord = recNo;
 			}
 		}
@@ -222,8 +224,7 @@
 	// Visual component
 	wcl.components.Control = function(obj) {
 		wcl.components.Component(obj);
-		obj.wcl.field = obj.wcl.record.fields[obj.wcl.dataWcl.field];
-		obj.wcl.field.bindings.push(obj);
+		//
 	}
 
 	wcl.components.Iterator = function(obj) {
@@ -231,8 +232,21 @@
 		//
 	}
 
-	wcl.components.Label = function(obj) {
+	wcl.components.Container = function(obj) {
 		wcl.components.Control(obj);
+		obj.wcl.controls = {};
+		if (obj.wcl.dataWcl.dataSet) obj.wcl.dataSet = global[obj.wcl.dataWcl.dataSet];
+	}
+	
+	wcl.components.FieldControl = function(obj) {
+		wcl.components.Control(obj);
+		// obj.wcl.dataSet - autoassigned on load
+		obj.wcl.field = obj.wcl.dataSet.record.fields[obj.wcl.dataWcl.field];
+		obj.wcl.field.bindings.push(obj);
+	}
+
+	wcl.components.Label = function(obj) {
+		wcl.components.FieldControl(obj);
 		obj.innerHTML = '<span>'+obj.wcl.field.data+'</span>';
 		obj.value = function(value) {
 			if (value == undefined) return obj.textContent;
@@ -241,7 +255,7 @@
 	}
 	
 	wcl.components.Edit = function(obj) {
-		wcl.components.Control(obj);
+		wcl.components.FieldControl(obj);
 		obj.innerHTML = '<input type="text" name="email">';
 		var edit = obj.children[0];
 		edit.value = obj.wcl.field.data;
@@ -267,17 +281,7 @@
 
 	wcl.components.Table = function(obj) {
 		wcl.components.Control(obj);
-		obj.innerHTML = '<input type="text" name="email">';
-		var edit = obj.children[0];
-		edit.value = obj.wcl.field.data;
-		edit.addEventListener('keyup', function(e) {
-			obj.wcl.field.value(this.value);
-		}, false);
-		obj.value = function(value) {
-			var edit = this.children[0];
-			if (value == undefined) return edit.value;
-			else if (edit.value != value) edit.value = value;
-		}
+		//
 	}
 
 	// TODO: autobind on load
@@ -357,5 +361,38 @@
 	wcl.post = function(url, params, callback) {
 		wcl.request("POST", url, params, true, callback);
 	}
+
+	wcl.autoInitialization = function() {
+		wcl.body = document.body || document.getElementsByTagName('body')[0];
+		var elements = wcl.body.getElementsByTagName('div');
+		for (var i = 0; i < elements.length; i++) {
+			var element = elements[i],
+				dataWcl = element.getAttribute('data-wcl');
+			if (dataWcl) {
+				element.wcl = { dataWcl: wcl.parse(dataWcl) }; // record: params.record
+				if (element.wcl.dataWcl.control == 'Container') wcl.containers[dataWcl.name] = element;
+			}
+		}
+		for (var containerName in wcl.containers) {
+			var container = wcl.containers[containerName],
+				elements = container.getElementsByTagName('div');
+			global[container.wcl.dataWcl.name] = container;
+			wcl.components.Container(container);
+			for (var i = 0; i < elements.length; i++) {
+				var element = elements[i];
+				if (element.wcl.dataWcl.control) {
+					var component = wcl.components[element.wcl.dataWcl.control];
+					container.wcl.controls[element.wcl.dataWcl.name] = element;
+					container[element.wcl.dataWcl.name] = element;
+					element.wcl.container = container;
+					element.wcl.dataSet = container.wcl.dataSet;
+					component(element);
+				}
+			}
+		}
+
+	}
+
+	//addEvent(global, 'load', wcl.autoInitialization);
 
 } (global.wcl = global.wcl || {}));

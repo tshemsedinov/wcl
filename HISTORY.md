@@ -1,3 +1,12 @@
+0.0.5 / 2014-05-07
+==================
+
+  * Fixed bug in wcl.AjaxAPI introspection
+  * Added wcl.autoInitialization - autobinding all wcl controls on the page
+  * Added wcl.components.FieldControl - parent class for all data-aware controls
+  * Added wcl.components.Container, refactored code and changed examples corresponding to new concepts
+  * Make all containers visible from global and hide controls from global, so controls can be accessed: containerName.controlName
+
 0.0.4 / 2014-05-06
 ==================
 

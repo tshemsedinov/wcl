@@ -2,25 +2,43 @@
 
 ## Features
 
-  - Field/Record model
+  - Memory model: DataSource -> DataSet -> Record -> Field
   - Data-aware components (visual and nonvisual components)
   - Browser-based visual controls library
-  - Bidirectional binding to DOM elements
-  - AJAX and memory data sources
+  - Bidirectional binding Field <-> DOM element
+  - AJAX data source and memory data source
+  - Flexible AjaxAPI class to connect servers
+  - Introspective method creation for AjaxAPI
 
 ## Example
 
 ```javascript
-var ajax, mem, r1, c1;
-
-ajax = wcl.AjaxDataSource({
-	read:     { get:  "examples/person/read.json" },
-	insert:   { post: "examples/person/insert.json" },
-	update:   { post: "examples/person/update.json" },
-	delete:   { post: "examples/person/delete.json" },
-	find:     { post: "examples/person/find.json" },
-	metadata: { post: "examples/person/metadata.json" }
+cardsSource = wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
+cardsPerson = wcl.DataSet({ source:cardsSource });
+cardsPerson.query({}, function() {
+	//console.dir(cardsPerson.memory.data);
+	wcl.autoInitialization();
+	setTimeout(function() {
+		cardsPerson.record.beginUpdate();
+		cardsPerson.next();
+		var newData = {
+			id:"4",
+			name:"Person 4",
+			phone:"+380501002044",
+			email:"person4@domain.com"
+		};
+		cardsPerson.record.assign(newData);
+		cardsPerson.record.fields.name.value("Darth Lenin");
+		if (cardsPerson.record.fields.name.value() == "Darth Lenin" ) {
+			console.log(cardsPerson.record.toString());
+			cardsPerson.record.fields.name.value("Le Corbusier");
+		}
+		cardsPerson.record.fields.name.value("Spinoza");
+		cardsPerson.record.endUpdate();
+	}, 2000);
 });
+
+// DataSource tests -----------------------------
 
 mem = wcl.MemoryDataSource({ data: [
 	{ id:1, name:"Person 1", phone:"+380501002011", email:"person1@domain.com" },
@@ -29,57 +47,34 @@ mem = wcl.MemoryDataSource({ data: [
 ]});
 
 mem.read({ name:"Person 2" }, function(err, data) {
-	if (data) {
-		r1 = wcl.Record({ data:data });
-		c1 = document.getElementById('container');
-		wcl.bind({ record:r1, container:c1 });
-		
-		r1.fields.name.value("Darth Lenin");
-		if (r1.fields.name.value() == "Darth Lenin" ) console.log(r1.toString());
-		
-		setTimeout(function() {
-			r1.beginUpdate();
-			var newData = {
-				id:"4",
-				name:"Person 4",
-				phone:"+380501002044",
-				email:"person4@domain.com"
-			};
-			r1.assign(newData);
-			r1.fields.name.value("Le Corbusier");
-			r1.fields.name.value("Spinoza");
-			r1.endUpdate();
-		}, 2000);
-
-		setTimeout(function() {
-			ajax.read({ id:5 }, function(err, newData) {
-				r1.assign(newData);
-				r1.fields.phone.value("+0123456789");
-				ajax.update(r1.toObject(), function(err) {
-					console.log('Data saved');
-				});
-			});
-		}, 4000);
-	}
+	// TODO: find why callback executes twice (with data and without data)
+	if (data) console.log('mem.read works: '+JSON.stringify(data));
 });
 
-// DataSource example -----------------------------
-
-var cardsSource, cardsTable;
-
-cardsSource = wcl.AjaxDataSource({ find: { post: "examples/cards/find.json" } });
-cardsTable = wcl.DataSet({ source:cardsSource });
-cardsTable.query({}, function() {
-	console.dir(cardsTable.memory.data);
-	cardsTable.next();
-	r1.assign(cardsTable.record.toObject());
+var ajax = wcl.AjaxDataSource({
+	read:     { get:  "examples/person/read.json" },
+	insert:   { post: "examples/person/insert.json" },
+	update:   { post: "examples/person/update.json" },
+	delete:   { post: "examples/person/delete.json" },
+	find:     { post: "examples/person/find.json" },
+	metadata: { post: "examples/person/metadata.json" }
 });
+
+setTimeout(function() {
+	ajax.read({ id:5 }, function(err, data) {
+		data.phone ="+0123456789";
+		ajax.update(data, function(err) {
+			console.log('Data saved');
+		});
+	});
+}, 4000);
 
 // API introspection example -----------------------------
 
 ajax2 = wcl.AjaxDataSource({
 	introspect: { post: "examples/person/introspect.json" }
 });
+
 ajax2.introspect({}, function() {
 	ajax2.read({ id:5 }, function(err, newData) {
 		console.log('Introspection works');
