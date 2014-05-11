@@ -27,7 +27,7 @@ addEvent(global, 'load', function() {
 		//console.dir(cardsPerson.memory.data);
 		wcl.autoInitialization();
 		setTimeout(function() {
-			cardsPerson.record.beginUpdate();
+			cardsPerson.beginUpdate();
 			cardsPerson.next();
 			var newData = {
 				id:"4",
@@ -42,7 +42,7 @@ addEvent(global, 'load', function() {
 				cardsPerson.record.fields.name.value("Le Corbusier");
 			}
 			cardsPerson.record.fields.name.value("Spinoza");
-			cardsPerson.record.endUpdate();
+			cardsPerson.endUpdate();
 		}, 2000);
 	});
 	

@@ -1,5 +1,5 @@
 ﻿// WCL Web Component Library
-// Version 0.0.5
+// Version 0.0.6
 
 (function(wcl) {
 
@@ -114,9 +114,13 @@
 		field.value = function(value, forceUpdate) {
 			if (value != undefined) {
 				if ((field.data != value) || forceUpdate) {
+					//console.log('Field change '+field.data+' to '+value);
 					field.data = value;
-					field.modified = true;
-					if (field.dataSet.record.updateCount == 0) {
+					if (!forceUpdate) {
+						field.modified = true;
+						field.dataSet.record.modified = true;
+					}
+					if (field.dataSet.updateCount == 0) {
 						for (var i = 0; i < field.bindings.length; i++) field.bindings[i].value(value);
 					}
 				}
@@ -132,16 +136,20 @@
 		var record = {};
 		record.fields = {};
 		record.dataSet = params.dataSet;
+		record.modified = false;
 		record.assign = function(data, metadata, preventUpdateAll) {
 			for (var fieldName in data) {
-				if (record.fields[fieldName]) record.fields[fieldName].value(data[fieldName]);
-				else record.fields[fieldName] = wcl.Field({
+				if (record.fields[fieldName]) {
+					record.fields[fieldName].value(data[fieldName]);
+					record.fields[fieldName].modified = false;
+				} else record.fields[fieldName] = wcl.Field({
 					data:     data[fieldName],
 					metadata: metadata ? metadata[fieldName] : null,
 					dataSet:  record.dataSet
 				});
 			}
 			if (!preventUpdateAll) record.updateAll();
+			record.modified = false;
 		}
 		record.each = function(callback) { // callback(fieldName, field)
 			for (var fieldName in record.fields) callback(fieldName, record.fields[fieldName]);
@@ -154,15 +162,32 @@
 		record.toString = function() {
 			return JSON.stringify(record.toObject());
 		}
-		record.updateCount = 0;
-		record.beginUpdate = function() {
-			record.updateCount++;
+		record.deltaObject = function() {
+			var result = {};
+			record.each(function(fieldName, field) {
+				if (field.modified) result[fieldName] = field.value();
+			});
+			return result;
 		}
-		record.endUpdate = function() {
-			record.updateCount--;
-			if (record.updateCount <= 0) {
-				record.updateCount = 0;
-				record.updateAll();
+		record.deltaString = function() {
+			return JSON.stringify(record.deltaObject());
+		}
+		record.commit = function() {
+			if (record.modified) {
+				var recNo = record.dataSet.currentRecord,
+					data = record.dataSet.memory.data[recNo];
+				record.each(function(fieldName, field) {
+					if (field.modified) data[fieldName] = field.value();
+					field.modified = false;
+				});
+				record.modified = false;
+			}
+		}
+		record.rollback = function() {
+			if (record.modified) {
+				var recNo = record.dataSet.currentRecord,
+					data = record.dataSet.memory.data[recNo];
+				record.assign(data);
 			}
 		}
 		record.updateAll = function() {
@@ -183,6 +208,7 @@
 		dataSet.record = null;
 		dataSet.recordCount = 0;
 		dataSet.currentRecord = -1;
+		dataSet.modified = false;
 		dataSet.query = function(params, callback) {
 			dataSet.source.find(params, function(err, data) {
 				dataSet.assign(data);
@@ -203,8 +229,10 @@
 		dataSet.move = function(recNo) {
 			if (recNo != dataSet.currentRecord && recNo >= 0 && recNo < dataSet.recordCount) {
 				var data = dataSet.memory.data[recNo];
-				if (dataSet.record) dataSet.record.assign(data);
-				else dataSet.record = wcl.Record({ data:data, dataSet:dataSet });
+				if (dataSet.record) {
+					if (dataSet.record.modified) dataSet.record.commit();
+					dataSet.record.assign(data);
+				} else dataSet.record = wcl.Record({ data:data, dataSet:dataSet });
 				dataSet.currentRecord = recNo;
 			}
 		}
@@ -212,6 +240,28 @@
 		dataSet.next  = function() { dataSet.move(dataSet.currentRecord+1); }
 		dataSet.prev  = function() { dataSet.move(dataSet.currentRecord-1); }
 		dataSet.last  = function() { dataSet.move(dataSet.recordCount-1); }
+		//
+		dataSet.updateCount = 0;
+		dataSet.beginUpdate = function() {
+			dataSet.updateCount++;
+		}
+		dataSet.endUpdate = function() {
+			dataSet.updateCount--;
+			if (dataSet.updateCount <= 0) {
+				dataSet.updateCount = 0;
+				dataSet.updateAll();
+			}
+		}
+		dataSet.updateAll = function() {
+			dataSet.record.updateAll();
+		}
+		dataSet.commit = function() {
+
+		}
+		dataSet.rollback = function() {
+
+		}
+
 		dataSet.assign(params.data);
 		return dataSet;
 	}

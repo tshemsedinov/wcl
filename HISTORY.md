@@ -1,3 +1,11 @@
+0.0.6 / 2014-05-11
+==================
+
+  * Added Record.modified and DataSet.modified
+  * Added Record.commit() and DataSet.rollback()
+  * Added Record.deltaObject() and Record.deltaString()
+  * Moved beginUpdate/endUpdate from Record to DataSet
+
 0.0.5 / 2014-05-07
 ==================
 
